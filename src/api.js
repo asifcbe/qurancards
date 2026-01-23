@@ -70,32 +70,33 @@ const RECITER_ID = 7; // Mishary Rashid Alafasy
 
 export const fetchAudioForPage = async (pageNumber, reciterId = RECITER_ID) => {
     try {
-        // v4 Audio is often by Recitation ID -> Chapter -> Verse
-        // Or /recitations/{recit_id}/by_page/{page_number} ?
-        // Let's check docs strictly. 
-        // Docs: /recitations/{recitation_id}/by_ayah/{ayah_key} or similar.
-        // Easier: /recitations/{id}/by_page/{page_number} exists?
-        // Checking doc chunks... "Audio" section had "Chapter Reciter Audio File".
-        // Let's try to fit the existing contract: return { ayahs: [ { audio: url } ] }
-
-        // Alternative: Use audio.quran.com directly or the `audio_url` field if available in verses response?
-        // verses response has `audio_url` if requested?
-        // Let's use a known endpoint for page audio files if available, or verse-by-verse.
-        // QF v4: GET /recitations/{recitation_id}/by_page/{page_number}
         const response = await axios.get(`${BASE_URL}/recitations/${reciterId}/by_page/${pageNumber}`);
-
-        // Transform to match expected structure in MemorizeView
-        // MemorizeView expects: { ayahs: [ { audio: 'url' } ] } matching the array index
-        // The API returns { audio_files: [ { verse_key, url } ] }
-
+        
         const audioFiles = response.data.audio_files;
-        // detailed mapping might be needed if sort order differs, but usually it's sequential.
+        if (!audioFiles || audioFiles.length === 0) {
+            console.warn('No audio files found for page', pageNumber);
+            return { ayahs: [] };
+        }
 
-        const ayahsMap = audioFiles.map(file => ({
-            audio: `https://verses.quran.com/${file.url}`, // Prepend CDN base URL
-            verseKey: file.verse_key
-        }));
+        // Ensure audio files are ordered by verse key (e.g., "2:255")
+        const sorted = [...audioFiles].sort((a, b) => {
+            const [sa, va] = a.verse_key.split(':').map(Number);
+            const [sb, vb] = b.verse_key.split(':').map(Number);
+            if (sa !== sb) return sa - sb;
+            return va - vb;
+        });
 
+        const ayahsMap = sorted.map(file => {
+            const audioUrl = file.url.startsWith('http') 
+                ? file.url 
+                : `https://verses.quran.com/${file.url}`;
+            return {
+                audio: audioUrl,
+                verseKey: file.verse_key
+            };
+        });
+
+        console.log('Loaded audio for page', pageNumber, ':', ayahsMap.length, 'verses');
         return { ayahs: ayahsMap };
     } catch (error) {
         console.error('Error fetching audio for page:', error);
