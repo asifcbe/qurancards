@@ -25,11 +25,7 @@ export const fetchQuranPage = async (pageNumber) => {
                 number: verse.verse_number,
                 text: verse.text_uthmani,
                 surah: {
-                    number: verse.chapter_id,
-                    // We might need to fetch surah names separately or map them if not in this response. 
-                    // v4 verses endpoint doesn't always include full surah details in nested object, 
-                    // strictly it returns 'verse_key': '1:1'. 
-                    // We can derive surah number from verse_key.
+                    number: verse.chapter_id || parseInt(verse.verse_key.split(':')[0]),
                 },
                 numberInSurah: verse.verse_number, // verse_number is usually 1-based index in surah
                 verseKey: verse.verse_key,
@@ -71,7 +67,7 @@ const RECITER_ID = 7; // Mishary Rashid Alafasy
 export const fetchAudioForPage = async (pageNumber, reciterId = RECITER_ID) => {
     try {
         const response = await axios.get(`${BASE_URL}/recitations/${reciterId}/by_page/${pageNumber}`);
-        
+
         const audioFiles = response.data.audio_files;
         if (!audioFiles || audioFiles.length === 0) {
             console.warn('No audio files found for page', pageNumber);
@@ -87,8 +83,8 @@ export const fetchAudioForPage = async (pageNumber, reciterId = RECITER_ID) => {
         });
 
         const ayahsMap = sorted.map(file => {
-            const audioUrl = file.url.startsWith('http') 
-                ? file.url 
+            const audioUrl = file.url.startsWith('http')
+                ? file.url
                 : `https://verses.quran.com/${file.url}`;
             return {
                 audio: audioUrl,

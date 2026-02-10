@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Allow: /login
+Allow: /privacy
+Allow: /terms
+Allow: /refund
+Allow: /contact
+
+Sitemap: https://meandquran.com/sitemap.xml

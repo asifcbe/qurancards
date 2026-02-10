@@ -1,18 +1,17 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { 
   Box, Typography, Card, CardContent, 
-  Button, TextField, List, ListItem, 
-  ListItemText, ListItemSecondaryAction,
-  IconButton, Divider, Dialog, DialogTitle,
-  DialogContent, DialogActions, CircularProgress,
-  Fade, Zoom
+  Button, TextField, IconButton, CircularProgress,
+  Fade, Zoom, Stack, Avatar, Dialog, DialogTitle,
+  DialogContent, DialogActions, InputAdornment
 } from '@mui/material';
-import DeleteIcon from '@mui/icons-material/Delete';
+import DeleteIcon from '@mui/icons-material/DeleteOutline';
 import AddIcon from '@mui/icons-material/Add';
-import PersonIcon from '@mui/icons-material/Person';
-import MenuBookIcon from '@mui/icons-material/MenuBook';
+import PersonIcon from '@mui/icons-material/PersonOutline';
+import MenuBookIcon from '@mui/icons-material/MenuBookOutlined';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import { UserContext } from '../contexts/UserContext';
-import { getProfiles, createProfile, deleteProfile } from '../firestoreDB';
+import { getProfiles, createProfile, deleteProfile, getUserDocument } from '../firestoreDB';
 import { getJuzStartPage } from '../api';
 
 const ProfileSelection = ({ onSelect }) => {
@@ -22,22 +21,26 @@ const ProfileSelection = ({ onSelect }) => {
   const [juz, setJuz] = useState(1);
   const [profiles, setProfiles] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [userDoc, setUserDoc] = useState(null);
 
-  // Load profiles from Firestore
   useEffect(() => {
-    const loadProfiles = async () => {
+    const loadInitialData = async () => {
       if (currentUser) {
         try {
-          const data = await getProfiles(currentUser.uid);
-          setProfiles(data);
+          const [profilesData, userData] = await Promise.all([
+            getProfiles(currentUser.uid),
+            getUserDocument(currentUser.uid)
+          ]);
+          setProfiles(profilesData);
+          setUserDoc(userData);
         } catch (error) {
-          console.error('Error loading profiles:', error);
+          console.error('Error loading initial data:', error);
         } finally {
           setLoading(false);
         }
       }
     };
-    loadProfiles();
+    loadInitialData();
   }, [currentUser]);
 
   const handleAddProfile = async () => {
@@ -56,13 +59,14 @@ const ProfileSelection = ({ onSelect }) => {
         setJuz(1);
       } catch (error) {
         console.error('Error creating profile:', error);
+        alert(error.message);
       }
     }
   };
 
   const handleDelete = async (profileId, e) => {
     e.stopPropagation();
-    if (currentUser) {
+    if (currentUser && window.confirm('Are you sure you want to delete this profile?')) {
       try {
         await deleteProfile(currentUser.uid, profileId);
         setProfiles(profiles.filter(p => p.id !== profileId));
@@ -74,389 +78,174 @@ const ProfileSelection = ({ onSelect }) => {
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
         <CircularProgress />
       </Box>
     );
   }
 
   return (
-    <Box 
-      sx={{ 
-        minHeight: '100vh',
-        background: 'linear-gradient(135deg, #0a192f 0%, #1a365d 50%, #0f4c81 100%)',
-        py: 4,
-        px: 2,
-        position: "relative",
-        overflow: "hidden",
-        "&::before": {
-          content: '""',
-          position: "absolute",
-          top: "-10%",
-          right: "-10%",
-          width: "50%",
-          height: "50%",
-          borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(59, 130, 246, 0.2) 0%, transparent 70%)",
-          filter: "blur(60px)",
-        }
-      }}
-    >
-      <Box sx={{ maxWidth: 600, mx: 'auto', position: "relative", zIndex: 1 }}>
-        {/* Header */}
-        <Fade in timeout={500}>
-          <Box sx={{ textAlign: 'center', mb: 5, color: 'white' }}>
-            <Zoom in timeout={700}>
-              <Typography 
-                variant="h3" 
-                sx={{ 
-                  fontWeight: 900,
-                  mb: 1.5,
-                  fontSize: { xs: '2.2rem', sm: '2.8rem' },
-                  textShadow: '0 4px 16px rgba(0,0,0,0.3)',
-                  letterSpacing: '-0.5px',
-                  background: "linear-gradient(135deg, #fff 0%, rgba(255,255,255,0.85) 100%)",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  backgroundClip: "text"
-                }}
-              >
-                👤 Select Profile
-              </Typography>
-            </Zoom>
-            <Typography 
-              variant="body1"
-              sx={{ 
-                color: 'rgba(255,255,255,0.9)',
-                fontWeight: 500,
-                fontSize: "1.1rem"
-              }}
-            >
-              Continue your Quran journey ✨
+    <Box sx={{ py: 6, px: 2, maxWidth: 600, mx: 'auto' }}>
+      <Fade in timeout={600}>
+        <Box>
+          <Box sx={{ textAlign: 'center', mb: 6 }}>
+            <Typography variant="h4" sx={{ fontWeight: 800, color: '#0F172A', mb: 1, letterSpacing: '-1px' }}>
+              Select Profile
+            </Typography>
+            <Typography variant="body1" sx={{ color: '#64748B', fontWeight: 500 }}>
+              Welcome back! Choose a profile to continue your journey.
             </Typography>
           </Box>
-        </Fade>
 
-        {/* Profiles List */}
-        <Box sx={{ mb: 3 }}>
-          {loading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
-              <CircularProgress sx={{ color: 'white' }} size={48} />
-            </Box>
-          ) : profiles.length === 0 ? (
-            <Fade in timeout={600}>
-              <Card
-                sx={{
-                  borderRadius: 3,
-                  background: 'rgba(255, 255, 255, 0.95)',
-                  backdropFilter: 'blur(20px)',
-                  boxShadow: '0 12px 48px rgba(0,0,0,0.25)',
-                  p: 4,
-                  textAlign: 'center',
-                  border: "1px solid rgba(255, 255, 255, 0.3)"
-                }}
-              >
-                <MenuBookIcon sx={{ fontSize: 64, color: "rgba(59, 130, 246, 0.3)", mb: 2 }} />
-                <Typography 
-                  variant="h6" 
-                  sx={{ 
-                    color: '#333',
-                    fontWeight: 700,
-                    mb: 1
-                  }}
-                >
-                  No profiles yet
-                </Typography>
-                <Typography 
-                  variant="body2" 
-                  sx={{ 
-                    color: '#666',
-                    fontWeight: 500
-                  }}
-                >
-                  Create your first profile to begin memorizing
+          <Stack spacing={2} sx={{ mb: 4 }}>
+            {profiles.length === 0 ? (
+              <Card elevation={0} sx={{ p: 4, textAlign: 'center', borderRadius: '24px', border: '1px dashed #E2E8F0', bgcolor: 'transparent' }}>
+                <Typography variant="body1" sx={{ color: '#94A3B8', fontWeight: 500 }}>
+                  No profiles found. Create your first one to get started.
                 </Typography>
               </Card>
-            </Fade>
-          ) : (
-            profiles.map((profile, idx) => (
-              <Zoom 
-                key={profile.id}
-                in 
-                timeout={600 + idx * 100}
-                style={{ transitionDelay: `${idx * 50}ms` }}
-              >
-                <Card
-                  onClick={() => onSelect(profile)}
-                  sx={{
-                    mb: 2.5,
-                    borderRadius: 3,
-                    background: 'rgba(255, 255, 255, 0.97)',
-                    backdropFilter: 'blur(20px)',
-                    boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
-                    cursor: 'pointer',
-                    transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-                    border: '2px solid rgba(255, 255, 255, 0.5)',
-                    position: "relative",
-                    overflow: "hidden",
-                    '&::before': {
-                      content: '""',
-                      position: "absolute",
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      height: "4px",
-                      background: "linear-gradient(90deg, #3b82f6 0%, #f59e0b 100%)",
-                      transform: "scaleX(0)",
-                      transformOrigin: "left",
-                      transition: "transform 0.4s cubic-bezier(0.4, 0, 0.2, 1)"
-                    },
-                    '&:hover': {
-                      transform: 'translateY(-6px)',
-                      boxShadow: '0 16px 56px rgba(0,0,0,0.3)',
-                      background: 'rgba(255, 255, 255, 1)',
-                      borderColor: 'rgba(59, 130, 246, 0.4)',
-                      '&::before': {
-                        transform: "scaleX(1)"
+            ) : (
+              profiles.map((profile, idx) => (
+                <Zoom key={profile.id} in timeout={400 + idx * 100}>
+                  <Card 
+                    onClick={() => onSelect(profile)}
+                    sx={{ 
+                      borderRadius: '20px', 
+                      border: '1px solid #E2E8F0',
+                      boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02), 0 2px 4px -1px rgba(0,0,0,0.02)',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                      '&:hover': {
+                        transform: 'translateY(-4px)',
+                        borderColor: '#6366F1',
+                        boxShadow: '0 12px 20px -5px rgba(99, 102, 241, 0.1)',
                       }
-                    }
-                  }}
-                >
-                  <CardContent sx={{ p: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                      <Box sx={{
-                        width: 52,
-                        height: 52,
-                        borderRadius: 2,
-                        background: "linear-gradient(135deg, #3b82f6 0%, #1e40af 100%)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        boxShadow: "0 4px 12px rgba(59, 130, 246, 0.3)"
-                      }}>
-                        <PersonIcon sx={{ color: "white", fontSize: 28 }} />
-                      </Box>
-                      <Box>
-                        <Typography 
-                          variant="h6" 
-                          sx={{ 
-                            fontWeight: 800,
-                            color: '#0f4c81',
-                            mb: 0.5,
-                            fontSize: "1.2rem"
-                          }}
-                        >
+                    }}
+                  >
+                    <CardContent sx={{ p: '20px !important', display: 'flex', alignItems: 'center' }}>
+                      <Avatar 
+                        sx={{ 
+                          width: 48, 
+                          height: 48, 
+                          bgcolor: '#F5F7FF', 
+                          color: '#6366F1',
+                          borderRadius: '14px',
+                          border: '1px solid #E0E7FF'
+                        }}
+                      >
+                        <PersonIcon />
+                      </Avatar>
+                      <Box sx={{ ml: 2, flexGrow: 1 }}>
+                        <Typography variant="h6" sx={{ fontWeight: 700, color: '#0F172A', lineHeight: 1.2 }}>
                           {profile.name}
                         </Typography>
-                        <Typography 
-                          variant="body2" 
-                          sx={{ 
-                            color: '#666',
-                            fontWeight: 600,
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 0.5
-                          }}
-                        >
-                          <MenuBookIcon sx={{ fontSize: 16 }} />
-                          Page {profile.currentPage}
+                        <Typography variant="caption" sx={{ color: '#64748B', fontWeight: 600 }}>
+                          Currently at Page {profile.currentPage}
                         </Typography>
                       </Box>
-                    </Box>
-                    <IconButton 
-                      onClick={(e) => handleDelete(profile.id, e)}
-                      sx={{
-                        color: '#ff5252',
-                        transition: "all 0.3s ease",
-                        '&:hover': {
-                          bgcolor: 'rgba(255, 82, 82, 0.15)',
-                          transform: "scale(1.1)"
-                        }
-                      }}
-                    >
-                      <DeleteIcon />
-                    </IconButton>
-                  </CardContent>
-                </Card>
-              </Zoom>
-            ))
-          )}
-        </Box>
+                      <IconButton 
+                        size="small" 
+                        onClick={(e) => handleDelete(profile.id, e)}
+                        sx={{ color: '#94A3B8', '&:hover': { color: '#EF4444' } }}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                      <ChevronRightIcon sx={{ color: '#E2E8F0', ml: 1 }} />
+                    </CardContent>
+                  </Card>
+                </Zoom>
+              ))
+            )}
+          </Stack>
 
-        {/* Add Profile Button */}
-        <Fade in timeout={800}>
           <Button
             fullWidth
             variant="contained"
             startIcon={<AddIcon />}
-            onClick={() => setOpen(true)}
+            onClick={() => {
+              const maxProfiles = userDoc?.maxProfiles || 2;
+              if (profiles.length >= maxProfiles) {
+                alert(`Profile limit reached. You can only have ${maxProfiles} profiles.`);
+                return;
+              }
+              setOpen(true);
+            }}
+            disabled={profiles.length >= (userDoc?.maxProfiles || 2)}
             sx={{
-              background: 'rgba(255, 255, 255, 0.2)',
-              color: 'white',
-              backdropFilter: 'blur(20px)',
-              border: '2px solid rgba(255, 255, 255, 0.4)',
               py: 2,
-              fontWeight: 800,
-              fontSize: '1.05rem',
+              borderRadius: '16px',
               textTransform: 'none',
-              borderRadius: 3,
-              boxShadow: "0 4px 16px rgba(0,0,0,0.2)",
-              '&:hover': {
-                background: 'rgba(255, 255, 255, 0.3)',
-                borderColor: 'rgba(255, 255, 255, 0.6)',
-                transform: 'translateY(-2px)',
-                boxShadow: '0 8px 28px rgba(0,0,0,0.25)'
-              },
-              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+              fontSize: '1rem',
+              fontWeight: 700,
+              background: '#0F172A',
+              color: '#fff',
+              '&:hover': { background: '#1E293B' },
+              '&.Mui-disabled': {
+                background: '#F1F5F9',
+                color: '#94A3B8'
+              }
             }}
           >
-            Create New Profile
+            {profiles.length >= (userDoc?.maxProfiles || 2) 
+              ? `Profile Limit Reached (${userDoc?.maxProfiles || 2})` 
+              : 'Create New Profile'}
           </Button>
-        </Fade>
-      </Box>
+        </Box>
+      </Fade>
 
-      {/* Create Profile Dialog */}
       <Dialog 
         open={open} 
         onClose={() => setOpen(false)} 
-        maxWidth="sm" 
+        maxWidth="xs" 
         fullWidth
-        PaperProps={{
-          sx: {
-            borderRadius: 3,
-            boxShadow: '0 24px 80px rgba(0,0,0,0.4)',
-            background: 'rgba(255, 255, 255, 0.98)',
-            backdropFilter: 'blur(20px)',
-            border: "1px solid rgba(255, 255, 255, 0.3)"
-          }
-        }}
+        PaperProps={{ sx: { borderRadius: '24px', p: 1 } }}
       >
-        <Box sx={{
-          background: 'linear-gradient(135deg, #3b82f6 0%, #1e40af 50%, #0f4c81 100%)',
-          p: 3,
-          color: 'white',
-          position: "relative",
-          overflow: "hidden",
-          "&::before": {
-            content: '""',
-            position: "absolute",
-            top: "-50%",
-            right: "-30%",
-            width: "80%",
-            height: "200%",
-            background: "rgba(255, 255, 255, 0.05)",
-            transform: "rotate(25deg)",
-          }
-        }}>
-          <DialogTitle sx={{ p: 0, fontWeight: 900, fontSize: '1.6rem', position: "relative", zIndex: 1 }}>
-            ✨ Create New Profile
-          </DialogTitle>
-        </Box>
-        
-        <DialogContent sx={{ p: 4 }}>
-          <TextField
-            autoFocus
-            margin="normal"
-            label="Profile Name"
-            placeholder="e.g., Muhammad"
-            fullWidth
-            variant="outlined"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            InputProps={{
-              startAdornment: <PersonIcon sx={{ mr: 1, color: "rgba(0,0,0,0.4)" }} />,
-            }}
-            sx={{
-              mb: 3,
-              '& .MuiOutlinedInput-root': {
-                borderRadius: 2,
-                background: "rgba(59, 130, 246, 0.03)",
-                transition: "all 0.3s ease",
-                '&:hover': {
-                  background: "rgba(59, 130, 246, 0.06)",
-                },
-                '&:hover fieldset': {
-                  borderColor: '#3b82f6',
-                },
-                '&.Mui-focused': {
-                  background: "rgba(59, 130, 246, 0.08)",
-                },
-                '&.Mui-focused fieldset': {
-                  borderColor: '#3b82f6',
-                  borderWidth: "2px"
-                }
-              }
-            }}
-          />
-          <TextField
-            label="Starting Juz (1-30)"
-            type="number"
-            fullWidth
-            variant="outlined"
-            inputProps={{ min: 1, max: 30 }}
-            value={juz}
-            onChange={(e) => setJuz(Math.min(30, Math.max(1, parseInt(e.target.value))))}
-            InputProps={{
-              startAdornment: <MenuBookIcon sx={{ mr: 1, color: "rgba(0,0,0,0.4)" }} />,
-            }}
-            sx={{
-              '& .MuiOutlinedInput-root': {
-                borderRadius: 2,
-                background: "rgba(59, 130, 246, 0.03)",
-                transition: "all 0.3s ease",
-                '&:hover': {
-                  background: "rgba(59, 130, 246, 0.06)",
-                },
-                '&:hover fieldset': {
-                  borderColor: '#3b82f6',
-                },
-                '&.Mui-focused': {
-                  background: "rgba(59, 130, 246, 0.08)",
-                },
-                '&.Mui-focused fieldset': {
-                  borderColor: '#3b82f6',
-                  borderWidth: "2px"
-                }
-              }
-            }}
-          />
+        <DialogTitle sx={{ fontWeight: 800, color: '#0F172A', pb: 1 }}>New Profile</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ color: '#64748B', mb: 3, fontWeight: 500 }}>
+            Enter a name and starting Juz to create your profile.
+          </Typography>
+          <Stack spacing={2.5}>
+            <TextField
+              autoFocus
+              label="Profile Name"
+              placeholder="e.g. Muhammad"
+              fullWidth
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              InputProps={{
+                startAdornment: <InputAdornment position="start"><PersonIcon sx={{ color: '#94A3B8' }} /></InputAdornment>,
+              }}
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
+            />
+            <TextField
+              label="Starting Juz (1-30)"
+              type="number"
+              fullWidth
+              inputProps={{ min: 1, max: 30 }}
+              value={juz}
+              onChange={(e) => setJuz(Math.min(30, Math.max(1, parseInt(e.target.value))))}
+              InputProps={{
+                startAdornment: <InputAdornment position="start"><MenuBookIcon sx={{ color: '#94A3B8' }} /></InputAdornment>,
+              }}
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
+            />
+          </Stack>
         </DialogContent>
-        
-        <DialogActions sx={{ p: 3, gap: 1.5 }}>
+        <DialogActions sx={{ p: 3, pt: 1 }}>
+          <Button onClick={() => setOpen(false)} sx={{ color: '#64748B', fontWeight: 600 }}>Cancel</Button>
           <Button 
-            onClick={() => {
-              setOpen(false);
-              setName('');
-              setJuz(1);
-            }}
+            variant="contained" 
+            onClick={handleAddProfile}
             sx={{ 
-              textTransform: 'none', 
+              borderRadius: '10px', 
+              px: 3, 
+              background: '#6366F1',
               fontWeight: 700,
-              color: "#666",
-              '&:hover': {
-                bgcolor: "rgba(0,0,0,0.05)"
-              }
+              '&:hover': { background: '#4F46E5' }
             }}
           >
-            Cancel
-          </Button>
-          <Button 
-            onClick={handleAddProfile} 
-            variant="contained"
-            sx={{
-              background: 'linear-gradient(135deg, #3b82f6 0%, #1e40af 50%, #0f4c81 100%)',
-              textTransform: 'none',
-              fontWeight: 800,
-              px: 3,
-              boxShadow: "0 4px 16px rgba(59, 130, 246, 0.3)",
-              '&:hover': {
-                background: 'linear-gradient(135deg, #2563eb 0%, #1e3a8a 50%, #0c3b6b 100%)',
-                transform: 'translateY(-2px)',
-                boxShadow: '0 8px 24px rgba(59, 130, 246, 0.4)'
-              }
-            }}
-          >
-            Create Profile
+            Create
           </Button>
         </DialogActions>
       </Dialog>

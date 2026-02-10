@@ -1,6 +1,7 @@
-import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { onAuthStateChanged, signOut, deleteUser } from 'firebase/auth';
 import { createContext, useState, useEffect } from 'react';
 import { auth } from '../firebaseConfig';
+import { getUserDocument, deleteUserFirestoreData } from '../firestoreDB';
 
 export const UserContext = createContext({
     currentUser: null,
@@ -22,6 +23,22 @@ export const UserProvider = ({ children }) => {
     }, []);
 
     const logout = async () => {
+        if (currentUser) {
+            try {
+                const userData = await getUserDocument(currentUser.uid);
+                const hasNeverSubscribed = !userData || !userData.accessGrantedDate;
+
+                if (hasNeverSubscribed) {
+                    await deleteUserFirestoreData(currentUser.uid);
+                    const user = auth.currentUser;
+                    if (user) {
+                        await deleteUser(user);
+                    }
+                }
+            } catch (err) {
+                console.error("Error during account cleanup on logout:", err);
+            }
+        }
         await signOut(auth);
         setCurrentUser(null);
     };
